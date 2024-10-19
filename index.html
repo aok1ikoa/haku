@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interactive Birthday Candle</title>
+  <style>
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background-color: #ffccff; /* Light pink background */
+      margin: 0;
+      overflow: hidden;
+      flex-direction: column; /* Allow stacking of title and canvas */
+    }
+
+    #title {
+      color: #333;
+      font-family: 'Arial', sans-serif;
+      font-size: 40px; /* Increased font size for title */
+      margin-bottom: 10px; /* Space between title and subtitle */
+    }
+
+    #subtitle {
+      color: #666;
+      font-family: 'Arial', sans-serif;
+      font-size: 20px; /* Font size for subtitle */
+      margin-bottom: 30px; /* Increased space between subtitle and canvas */
+    }
+
+    #message {
+      position: absolute;
+      top: 20px;
+      color: #333;
+      font-family: 'Arial', sans-serif;
+      font-size: 20px;
+      text-align: center;
+      width: 100%;
+    }
+
+    canvas {
+      background-color: transparent;
+      image-rendering: pixelated; /* Ensure pixel art stays sharp */
+      position: relative; /* Set relative position for positioning kaomoji */
+    }
+
+    #kaomoji {
+      font-size: 30px; /* Kaomoji size */
+      position: absolute;
+      left: 250px; /* Positioned right beside the cupcake */
+      bottom: 150px; /* Adjusted bottom position for better alignment */
+      text-align: left; /* Align text to the left */
+    }
+
+    #smileText {
+      font-size: 24px; /* Reduced text size */
+      position: absolute;
+      left: 250px; /* Align with the bear */
+      bottom: 120px; /* Placed under the bear */
+      color: brown; /* Changed text color to brown */
+      font-family: 'Arial', sans-serif; /* Font family */
+    }
+  </style>
+</head>
+<body>
+  <div id="title">happy birfday haku!</div> <!-- Title updated -->
+  <div id="subtitle">TIME TO BLOW OUT THE CANDLE HUH?</div> <!-- Subtitle -->
+  <div id="message">Blow on the candle to extinguish the flame!</div>
+  <canvas id="candleCanvas" width="400" height="600"></canvas>
+  <div id="kaomoji">⌒___⌒ <br>( ˶ᵕ ﻌ ᵕ˶︎ ︎)<br>/　　⌒ヽ<br>人＿__つ_つ</div> <!-- Kaomoji added -->
+  <div id="smileText">show me how you smile</div> <!-- Smile text added -->
+
+  <script>
+    const canvas = document.getElementById('candleCanvas');
+    const ctx = canvas.getContext('2d');
+
+    let flameBrightness = 1.0;
+    let flameVisible = true;
+    let blowAttempts = 0;
+    let dimming = false;
+
+    // Function to draw a simple cupcake with a candle
+    function drawCupcake() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Cupcake base (light yellow)
+      ctx.fillStyle = '#ffeb99'; // Light yellow cupcake color
+      ctx.beginPath();
+      ctx.moveTo(150, 400); // Left bottom
+      ctx.lineTo(250, 400); // Right bottom
+      ctx.lineTo(280, 300); // Right top
+      ctx.lineTo(120, 300); // Left top
+      ctx.closePath();
+      ctx.fill();
+
+      // Frosting (white)
+      ctx.fillStyle = '#ffffff'; // White frosting color
+      ctx.beginPath();
+      ctx.moveTo(120, 300); // Starting point
+      ctx.bezierCurveTo(100, 220, 300, 220, 280, 300); // Frosting dome
+      ctx.lineTo(120, 300); // Closing the path
+      ctx.fill();
+
+      // Blueberry toppings
+      ctx.fillStyle = '#8A2BE2'; // Purplish blue color for first blueberry
+      ctx.beginPath();
+      ctx.arc(150, 270, 10, 0, Math.PI * 2); // First blueberry
+      ctx.fill();
+      
+      ctx.fillStyle = '#000080'; // Navy blue color for second blueberry
+      ctx.beginPath();
+      ctx.arc(230, 270, 10, 0, Math.PI * 2); // Second blueberry
+      ctx.fill();
+
+      // Limited donut-style sprinkles (5 sprinkles)
+      const sprinklesColors = ['#FF5733', '#FFC300', '#DAF7A6', '#FF33F6', '#33FFBD'];
+      const sprinklePositions = [
+        { x: 150, y: 250 }, // Sprinkle 1
+        { x: 190, y: 240 }, // Sprinkle 2
+        { x: 210, y: 240 }, // Sprinkle 3
+        { x: 180, y: 260 }, // Sprinkle 4
+        { x: 230, y: 250 }  // Sprinkle 5
+      ];
+
+      sprinklePositions.forEach((pos, index) => {
+        ctx.fillStyle = sprinklesColors[index % sprinklesColors.length];
+        ctx.beginPath();
+        ctx.ellipse(pos.x, pos.y, 6, 3, Math.PI / 4, 0, Math.PI * 2); // Draw donut-style sprinkles
+        ctx.fill();
+      });
+
+      // Candle Body (white)
+      ctx.fillStyle = '#ffffff'; // White candle color
+      ctx.fillRect(190, 250, 20, 40); // Candle rectangle
+
+      // Wick
+      ctx.fillStyle = '#000'; // Wick color
+      ctx.fillRect(200, 240, 5, 10); // Wick
+
+      // Flame (Thick and Big)
+      if (flameVisible) {
+        ctx.fillStyle = 'orange'; // Flame color
+        ctx.globalAlpha = flameBrightness; // Adjust flame opacity
+        ctx.beginPath();
+        ctx.moveTo(200, 240); // Base of the flame
+        ctx.bezierCurveTo(170, 180, 230, 180, 200, 240); // Create thick flame shape
+        ctx.fill();
+        ctx.globalAlpha = 1.0; // Reset opacity
+      }
+    }
+
+    drawCupcake(); // Initial drawing
+
+    // Access microphone and detect blows
+    navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const microphone = audioContext.createMediaStreamSource(stream);
+      const analyser = audioContext.createAnalyser();
+
+      analyser.fftSize = 256;
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      microphone.connect(analyser);
+
+      function detectBlow() {
+        analyser.getByteTimeDomainData(dataArray);
+
+        const maxAmplitude = Math.max(...dataArray) / 128 - 1;
+
+        if (maxAmplitude > 0.6 && !dimming) {
+          blowAttempts++;
+          document.getElementById('message').textContent = `Blow attempts: ${blowAttempts}`;
+
+          if (blowAttempts < 3) {
+            dimFlame();
+          } else if (blowAttempts >= 3) {
+            flameVisible = false; // Extinguish the flame
+            document.getElementById('message').textContent = "The candle is blown out!";
+            drawCupcake(); // Final redraw
+          }
+        }
+
+        requestAnimationFrame(detectBlow);
+      }
+
+      detectBlow();
+    }).catch((err) => {
+      console.error('Microphone access denied:', err);
+      document.getElementById('message').textContent = 'Please allow microphone access!';
+    });
+
+    function dimFlame() {
+      dimming = true;
+      let interval = setInterval(() => {
+        flameBrightness -= 0.1; // Dim the flame
+        drawCupcake();
+
+        if (flameBrightness <= 0.2) {
+          clearInterval(interval);
+          restoreFlame();
+        }
+      }, 100);
+    }
+
+    function restoreFlame() {
+      let interval = setInterval(() => {
+        flameBrightness += 0.05;
+        drawCupcake();
+
+        if (flameBrightness >= 1.0) {
+          clearInterval(interval);
+          dimming = false;
+        }
+      }, 100);
+    }
+  </script>
+</body>
+</html>
